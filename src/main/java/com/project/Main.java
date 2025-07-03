@@ -15,8 +15,15 @@ import static com.project.Body.collide;
 
 public class Main extends Application {
 
-    Body b1 = new Body("A", 10, 10, 10, -10);
-    Body b2 = new Body("B", 0, 30, 5, 10);
+    Body b1 = new Body("A",
+            new Vector(0, 100),
+            new Vector(2, 0),
+            new Vector(0, 0), 10);
+    Body b2 = new Body("B",
+            new Vector(100, 0),
+            new Vector(0, 2),
+            new Vector(0, 0), 10);
+
 
     private volatile boolean isRunning = false;
     private Thread simulationThread;
@@ -24,6 +31,8 @@ public class Main extends Application {
     private final XYChart.Series<Number, Number> series2 = new XYChart.Series<>();
     private final XYChart.Series<Number, Number> series3 = new XYChart.Series<>();
     private final XYChart.Series<Number, Number> series4 = new XYChart.Series<>();
+    private final XYChart.Series<Number, Number> series5 = new XYChart.Series<>();
+    private final XYChart.Series<Number, Number> series6 = new XYChart.Series<>();
 
     public static void main(String[] args) {
         launch(args);
@@ -31,52 +40,54 @@ public class Main extends Application {
 
     @Override
     public void start(Stage stage) throws Exception {
-        stage.setTitle("Графік позиції об'єкта з керуванням");
+        stage.setTitle("MOTION SIMULATION");
 
         final NumberAxis xAxis = new NumberAxis();
         final NumberAxis yAxis = new NumberAxis();
         final NumberAxis timeAxis = new NumberAxis();
-        final NumberAxis velAxic = new NumberAxis();
-        timeAxis.setLabel("Час (с)");
-        velAxic.setLabel("Швидкість");
-        xAxis.setLabel("Час (с)");
-        yAxis.setLabel("Позиція");
+        final NumberAxis velAxis = new NumberAxis();
+        timeAxis.setLabel("TIME");
+        velAxis.setLabel("VELOCITY");
+        xAxis.setLabel("X");
+        yAxis.setLabel("Y");
 
-        xAxis.setAutoRanging(true);
-        yAxis.setAutoRanging(true);
+        xAxis.setAutoRanging(false);
+        yAxis.setAutoRanging(false);
         timeAxis.setAutoRanging(true);
-        velAxic.setAutoRanging(true);
+        velAxis.setAutoRanging(true);
 
-        final LineChart<Number, Number> lineChart = new LineChart<>(xAxis, yAxis);
-        final LineChart<Number, Number> lineChart1 = new LineChart<>(timeAxis, velAxic);
+        final LineChart<Number, Number> posChart = new LineChart<>(xAxis, yAxis);
+        final LineChart<Number, Number> velChart = new LineChart<>(timeAxis, velAxis);
 
-        lineChart1.setMaxSize(600, 600);
-        lineChart1.setMinSize(600, 600);
-        lineChart.setMinSize(600, 600);
-        lineChart.setMaxSize(600, 600);
+        velChart.setMaxSize(600, 600);
+        velChart.setMinSize(600, 600);
+        posChart.setMinSize(600, 600);
+        posChart.setMaxSize(600, 600);
 
-        lineChart1.setTitle("Швидкість об'єктів");
-        lineChart.setTitle("Рух об'єктів");
-        lineChart.setCreateSymbols(false);
-        lineChart1.setCreateSymbols(false);
+        velChart.setTitle("VELOCITY");
+        posChart.setTitle("POSITION");
+        posChart.setCreateSymbols(false);
+        velChart.setCreateSymbols(false);
 
-        series1.setName("Об'єкт A");
-        series2.setName("Об'єкт B");
-        series3.setName("Об'єкт A");
-        series4.setName("Об'єкт B");
-        lineChart.getData().addAll(series1, series2);
-        lineChart1.getData().addAll(series3, series4);
+        series1.setName(b1.toString());
+        series2.setName(b2.toString());
+        series3.setName(" - horizontal velocity of A");
+        series4.setName(" - vertical velocity of A");
+        series5.setName(" - horizontal velocity of B");
+        series6.setName(" - vertical velocity of B");
+        posChart.getData().addAll(series1, series2);
+        velChart.getData().addAll(series3, series4, series5, series6);
 
-        Button startButton = new Button("Почати");
-        Button stopButton = new Button("Зупинити");
-        Button resetButton = new Button("Скинути");
+        Button startButton = new Button("START");
+        Button stopButton = new Button("STOP");
+        Button resetButton = new Button("RESET");
 
         startButton.setOnAction(e -> startSimulation());
         stopButton.setOnAction(e -> stopSimulation());
         resetButton.setOnAction(e -> resetSimulation());
 
         HBox buttonBox = new HBox(10, startButton, stopButton, resetButton);
-        HBox chartsBox = new HBox(10, lineChart, lineChart1);
+        HBox chartsBox = new HBox(10, posChart, velChart);
         VBox root = new VBox(10, buttonBox, chartsBox);
 
         Scene scene = new Scene(root, 1300, 650);
@@ -93,8 +104,14 @@ public class Main extends Application {
             long lastTime = System.nanoTime();
             double time = 0;
 
-            b1 = new Body("A", 100, 10, 0, -100);
-            b2 = new Body("B", 0, 30, 10, 100);
+            b1 = new Body("A",
+                    new Vector(0, 50),
+                    new Vector(20, 0),
+                    new Vector(0, 0), 5);
+            b2 = new Body("B",
+                    new Vector(50, 0),
+                    new Vector(0, 20),
+                    new Vector(0, 0), 1);
 
             while (isRunning) {
                 long now = System.nanoTime();
@@ -107,24 +124,27 @@ public class Main extends Application {
 
                 double finalTime = time;
                 Platform.runLater(() -> {
-                    series1.getData().add(new XYChart.Data<>(finalTime, b1.getX()));
-                    series2.getData().add(new XYChart.Data<>(finalTime, b2.getX()));
+                    series1.getData().add(new XYChart.Data<>(b1.getPosition().x, b1.getPosition().y));
+                    series2.getData().add(new XYChart.Data<>(b2.getPosition().x, b2.getPosition().y));
+                    series1.setName(b1.toString());
+                    series2.setName(b2.toString());
                 });
 
                 Platform.runLater(() -> {
-                    series3.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity()));
-                    series4.getData().add(new XYChart.Data<>(finalTime, b2.getVelocity()));
+                    series3.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().x));
+                    series4.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().y));
+                    series5.getData().add(new XYChart.Data<>(finalTime, b2.getVelocity().x));
+                    series6.getData().add(new XYChart.Data<>(finalTime, b2.getVelocity().y));
                 });
 
 
-                if (Math.abs(b1.getX() - b2.getX()) < 1) {
+                if (b1.dist(b2) < 1) {
                     collide(b1, b2);
                 }
 
                 try {
                     Thread.sleep(100);
                 } catch (InterruptedException e) {
-                    System.out.println("Симуляцію зупинено");
                 }
             }
         });
@@ -145,6 +165,8 @@ public class Main extends Application {
             series2.getData().clear();
             series3.getData().clear();
             series4.getData().clear();
+            series5.getData().clear();
+            series6.getData().clear();
         });
     }
 }
