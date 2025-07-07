@@ -2,6 +2,7 @@ package com.project;
 
 import javafx.application.Application;
 import javafx.application.Platform;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
@@ -222,7 +223,6 @@ public class Main extends Application {
 
     private void startSimulation() {
         if (isRunning) return;
-
         isRunning = true;
         simulationThread = new Thread(() -> {
             long lastTime = System.nanoTime();
@@ -234,17 +234,26 @@ public class Main extends Application {
                 time += dt;
 
                 synchronized (this) {
-                    b1.update(dt);
-                    b2.update(dt);
+                    b1.update(dt, rest);
+                    b2.update(dt, rest);
                 }
 
                 double finalTime = time;
                 Platform.runLater(() -> {
+                    series1.getData().clear();
+                    series2.getData().clear();
                     series1.getData().add(new XYChart.Data<>(b1.getPosition().x, b1.getPosition().y));
+                    Node line1 = series1.getNode().lookup(".chart-series-line");
+                    if (line1 != null) {
+                        line1.setStyle("-fx-stroke-width: 5px;");
+                    }
                     series2.getData().add(new XYChart.Data<>(b2.getPosition().x, b2.getPosition().y));
+                    Node line2 = series2.getNode().lookup(".chart-series-line");
+                    if (line2 != null) {
+                        line2.setStyle("-fx-stroke-width: 5px;");
+                    }
                     series1.setName(b1.toString());
                     series2.setName(b2.toString());
-
                     series3.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().x));
                     series4.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().y));
                     series5.getData().add(new XYChart.Data<>(finalTime, b2.getVelocity().x));

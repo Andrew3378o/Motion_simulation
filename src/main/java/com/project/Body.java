@@ -56,47 +56,58 @@ public class Body {
         return String.format("%s: pos = (%.2f;%.2f); v = (%.2f;%.2f); a = (%.2f;%.2f); m = %.2f", name, position.x, position.y, velocity.x, velocity.y, acceleration.x, acceleration.y, mass);
     }
 
-    public void update(double dt){
+    public void update(double dt, double e){
         velocity = velocity.add(acceleration.multiply(dt));
         position = position.add(velocity.multiply(dt));
+        if(position.y < 0){
+            position.y = 0;
+            velocity.y *= -e;
+        }
+        if(position.x < 0){
+            position.x = 0;
+            velocity.x *= -e;
+        }
+        if(position.y == 0 && e == 0){
+            position.y = 0;
+            velocity.x = 0;
+            velocity.y = 0;
+            acceleration.x = 0;
+            acceleration.y = 0;
+        }
+        if(position.x == 0 && e == 0){
+            position.x = 0;
+            velocity.x = 0;
+            velocity.y = 0;
+            acceleration.x = 0;
+            acceleration.y = 0;
+        }
     }
 
     public double dist(Body other){
         return Math.sqrt(Math.pow((this.getPosition().x - other.getPosition().x), 2) + Math.pow((this.getPosition().y - other.getPosition().y), 2));
     }
 
-    public static void collide(Body b1, Body b2, double restitution) { // Додано параметр restitution
+    public static void collide(Body b1, Body b2, double restitution) {
         Vector delta = b1.position.subtract(b2.position);
         Vector n = delta.normalize();
 
-        // Проекції швидкостей на нормаль
         double v1n = b1.velocity.dot(n);
         double v2n = b2.velocity.dot(n);
+        double relativeVelocity = v1n - v2n;
 
-        // Важлива перевірка: якщо тіла вже розходяться, не обробляємо зіткнення знову
-        // Це запобігає "тремтінню"
-        if (v1n - v2n > 0) { // Перевіряємо відносну швидкість вздовж нормалі
-            return;
-        }
+        if (relativeVelocity >= -1e-6) return;
 
         double m1 = b1.mass;
         double m2 = b2.mass;
 
-        // Розрахунок швидкостей після зіткнення з урахуванням коефіцієнта відновлення
-        // Ці формули є похідними від збереження імпульсу та визначення коефіцієнта відновлення
         double newV1n = (m1 * v1n + m2 * v2n - m2 * (v1n - v2n) * restitution) / (m1 + m2);
         double newV2n = (m1 * v1n + m2 * v2n - m1 * (v2n - v1n) * restitution) / (m1 + m2);
 
-
-        // Векторні компоненти швидкостей вздовж нормалі до зіткнення
         Vector v1nVecBefore = n.multiply(v1n);
         Vector v2nVecBefore = n.multiply(v2n);
-
-        // Векторні компоненти швидкостей вздовж нормалі після зіткнення
         Vector v1nVecAfter = n.multiply(newV1n);
         Vector v2nVecAfter = n.multiply(newV2n);
 
-        // Оновлення швидкостей: віднімаємо стару нормальну компоненту, додаємо нову
         b1.velocity = b1.velocity.subtract(v1nVecBefore).add(v1nVecAfter);
         b2.velocity = b2.velocity.subtract(v2nVecBefore).add(v2nVecAfter);
     }
