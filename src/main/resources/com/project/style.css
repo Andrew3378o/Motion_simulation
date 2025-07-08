@@ -1,0 +1,70 @@
+.chart-symbol {
+    -fx-background-radius: 1px;
+    -fx-padding: 1px;
+}
+.root {
+    -fx-background-color: #f5f5f7;
+    -fx-font-family: "Helvetica Neue", "San Francisco", sans-serif;
+    -fx-text-fill: #1d1d1f;
+}
+
+.simulation-window {
+    -fx-background-color: white;
+    -fx-background-radius: 16;
+    -fx-padding: 20;
+    -fx-border-color: #d0d0d5;
+    -fx-border-width: 1;
+    -fx-border-radius: 16;
+}
+
+.window-header {
+    -fx-background-color: #e5e5ea;
+    -fx-border-color: #cccccc transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 12 16 12 16;
+    -fx-background-radius: 16 16 0 0;
+}
+
+.window-controls {
+    -fx-spacing: 8;
+}
+
+.btn {
+    -fx-background-radius: 100;
+    -fx-min-width: 12;
+    -fx-min-height: 12;
+    -fx-max-width: 12;
+    -fx-max-height: 12;
+}
+
+.close {
+    -fx-background-color: #ff5f56;
+}
+
+.minimize {
+    -fx-background-color: #ffbd2e;
+}
+
+.zoom {
+    -fx-background-color: #27c93f;
+}
+
+.button {
+    -fx-background-color: #e0e0e0;
+    -fx-background-radius: 12;
+    -fx-padding: 8 16 8 16;
+    -fx-font-size: 14;
+}
+
+.button:hover {
+    -fx-background-color: #d4d4d4;
+}
+
+.text-field, .text-area, .combo-box {
+    -fx-border-color: #c7c7cc;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 10;
+    -fx-font-size: 14;
+    -fx-background-color: white;
+}

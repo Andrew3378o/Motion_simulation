@@ -2,10 +2,10 @@ package com.project;
 
 import javafx.application.Application;
 import javafx.application.Platform;
-import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
+import javafx.scene.chart.ScatterChart;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
 import javafx.scene.control.ScrollPane;
@@ -14,21 +14,22 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import java.util.Objects;
 
 public class Main extends Application {
 
-    private final Body b1 = new Body("A", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0);
-    private final Body b2 = new Body("B", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0);
-    private double rest = 1;
+    Body b1 = new Body("A", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0);
+    Body b2 = new Body("B", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0);
+    double rest = 1;
 
-    private volatile boolean isRunning = false;
-    private Thread simulationThread;
-    private final XYChart.Series<Number, Number> series1 = new XYChart.Series<>();
-    private final XYChart.Series<Number, Number> series2 = new XYChart.Series<>();
-    private final XYChart.Series<Number, Number> series3 = new XYChart.Series<>();
-    private final XYChart.Series<Number, Number> series4 = new XYChart.Series<>();
-    private final XYChart.Series<Number, Number> series5 = new XYChart.Series<>();
-    private final XYChart.Series<Number, Number> series6 = new XYChart.Series<>();
+    volatile boolean isRunning = false;
+    Thread simulationThread;
+    XYChart.Series<Number, Number> series1 = new XYChart.Series<>();
+    XYChart.Series<Number, Number> series2 = new XYChart.Series<>();
+    XYChart.Series<Number, Number> series3 = new XYChart.Series<>();
+    XYChart.Series<Number, Number> series4 = new XYChart.Series<>();
+    XYChart.Series<Number, Number> series5 = new XYChart.Series<>();
+    XYChart.Series<Number, Number> series6 = new XYChart.Series<>();
     VBox controlBox1 = createBodyControlBox(b1, b1.getName());
     VBox controlBox2 = createBodyControlBox(b2, b2.getName());
 
@@ -40,10 +41,10 @@ public class Main extends Application {
     public void start(Stage stage) {
         stage.setTitle("MOTION SIMULATION");
 
-        final NumberAxis xAxis = new NumberAxis();
-        final NumberAxis yAxis = new NumberAxis();
-        final NumberAxis timeAxis = new NumberAxis();
-        final NumberAxis velAxis = new NumberAxis();
+        NumberAxis xAxis = new NumberAxis();
+        NumberAxis yAxis = new NumberAxis();
+        NumberAxis timeAxis = new NumberAxis();
+        NumberAxis velAxis = new NumberAxis();
         timeAxis.setLabel("TIME");
         velAxis.setLabel("VELOCITY");
         xAxis.setLabel("X");
@@ -54,8 +55,8 @@ public class Main extends Application {
         timeAxis.setAutoRanging(true);
         velAxis.setAutoRanging(true);
 
-        final LineChart<Number, Number> posChart = new LineChart<>(xAxis, yAxis);
-        final LineChart<Number, Number> velChart = new LineChart<>(timeAxis, velAxis);
+        ScatterChart<Number, Number> posChart = new ScatterChart<>(xAxis, yAxis);
+        LineChart<Number, Number> velChart = new LineChart<>(timeAxis, velAxis);
 
         velChart.setMaxSize(600, 600);
         velChart.setMinSize(600, 600);
@@ -64,7 +65,6 @@ public class Main extends Application {
 
         velChart.setTitle("VELOCITY");
         posChart.setTitle("POSITION");
-        posChart.setCreateSymbols(false);
         velChart.setCreateSymbols(false);
 
         series1.setName(b1.toString());
@@ -106,6 +106,7 @@ public class Main extends Application {
         ScrollPane root = new ScrollPane(mainContent);
 
         Scene scene = new Scene(root, 1300, 650);
+        scene.getStylesheets().add(Objects.requireNonNull(getClass().getResource("/com/project/style.css")).toExternalForm());
         stage.setScene(scene);
         stage.show();
     }
@@ -240,18 +241,8 @@ public class Main extends Application {
 
                 double finalTime = time;
                 Platform.runLater(() -> {
-                    series1.getData().clear();
-                    series2.getData().clear();
                     series1.getData().add(new XYChart.Data<>(b1.getPosition().x, b1.getPosition().y));
-                    Node line1 = series1.getNode().lookup(".chart-series-line");
-                    if (line1 != null) {
-                        line1.setStyle("-fx-stroke-width: 5px;");
-                    }
                     series2.getData().add(new XYChart.Data<>(b2.getPosition().x, b2.getPosition().y));
-                    Node line2 = series2.getNode().lookup(".chart-series-line");
-                    if (line2 != null) {
-                        line2.setStyle("-fx-stroke-width: 5px;");
-                    }
                     series1.setName(b1.toString());
                     series2.setName(b2.toString());
                     series3.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().x));
