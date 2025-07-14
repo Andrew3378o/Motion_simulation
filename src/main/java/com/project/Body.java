@@ -1,7 +1,7 @@
 package com.project;
 
 public class Body {
-    private final String name;
+    private String name;
     private Vector position;
     private Vector velocity;
     private Vector acceleration;
@@ -49,6 +49,10 @@ public class Body {
 
     public void setAcceleration(Vector acceleration) {
         this.acceleration = acceleration;
+    }
+
+    public void setName(String name) {
+        this.name = name;
     }
 
     @Override

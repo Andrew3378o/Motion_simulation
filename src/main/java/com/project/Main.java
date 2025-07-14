@@ -14,24 +14,22 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
 import javafx.stage.Stage;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Objects;
+import static com.project.Body.*;
 
 public class Main extends Application {
 
-    Body b1 = new Body("A", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0);
-    Body b2 = new Body("B", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0);
     double rest = 1;
-
     volatile boolean isRunning = false;
     Thread simulationThread;
-    XYChart.Series<Number, Number> series1 = new XYChart.Series<>();
-    XYChart.Series<Number, Number> series2 = new XYChart.Series<>();
-    XYChart.Series<Number, Number> series3 = new XYChart.Series<>();
-    XYChart.Series<Number, Number> series4 = new XYChart.Series<>();
-    XYChart.Series<Number, Number> series5 = new XYChart.Series<>();
-    XYChart.Series<Number, Number> series6 = new XYChart.Series<>();
-    VBox controlBox1 = createBodyControlBox(b1, b1.getName());
-    VBox controlBox2 = createBodyControlBox(b2, b2.getName());
+    ArrayList<Body> bodies = new ArrayList<>();
+    HashMap<Body, XYChart.Series<Number, Number>> positionSeries = new HashMap<>();
+    HashMap<Body, XYChart.Series<Number, Number>> horizontalVelocitySeries = new HashMap<>();
+    HashMap<Body, XYChart.Series<Number, Number>> verticalVelocitySeries = new HashMap<>();
+    HashMap<Body, VBox> controlBoxes = new HashMap<>();
+    HBox controlsBox = new HBox(10);
 
     public static void main(String[] args) {
         launch(args);
@@ -41,49 +39,69 @@ public class Main extends Application {
     public void start(Stage stage) {
         stage.setTitle("MOTION SIMULATION");
 
+        Body b1 = new Body("Body 1", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 1);
+        Body b2 = new Body("Body 2", new Vector(1, 0), new Vector(0, 0), new Vector(0, 0), 1);
+        bodies.add(b1);
+        bodies.add(b2);
+
+        for (Body body : bodies) {
+            positionSeries.put(body, new XYChart.Series<>());
+            horizontalVelocitySeries.put(body, new XYChart.Series<>());
+            verticalVelocitySeries.put(body, new XYChart.Series<>());
+        }
+
         NumberAxis xAxis = new NumberAxis();
         NumberAxis yAxis = new NumberAxis();
         NumberAxis timeAxis = new NumberAxis();
         NumberAxis velAxis = new NumberAxis();
-        timeAxis.setLabel("TIME");
-        velAxis.setLabel("VELOCITY");
         xAxis.setLabel("X");
         yAxis.setLabel("Y");
 
         xAxis.setAutoRanging(false);
+        xAxis.setLowerBound(0);
+        xAxis.setUpperBound(100);
+        xAxis.setTickUnit(5);
+
         yAxis.setAutoRanging(false);
-        timeAxis.setAutoRanging(true);
-        velAxis.setAutoRanging(true);
+        yAxis.setLowerBound(0);
+        yAxis.setUpperBound(100);
+        yAxis.setTickUnit(5);
+
+        timeAxis.setLabel("TIME");
+        velAxis.setLabel("VELOCITY");
 
         ScatterChart<Number, Number> posChart = new ScatterChart<>(xAxis, yAxis);
         LineChart<Number, Number> velChart = new LineChart<>(timeAxis, velAxis);
-
-        velChart.setMaxSize(600, 600);
-        velChart.setMinSize(600, 600);
-        posChart.setMinSize(600, 600);
-        posChart.setMaxSize(600, 600);
-
-        velChart.setTitle("VELOCITY");
         posChart.setTitle("POSITION");
+        velChart.setTitle("VELOCITY");
         velChart.setCreateSymbols(false);
+        posChart.setMinSize(600, 600);
+        velChart.setMinSize(600, 600);
 
-        series1.setName(b1.toString());
-        series2.setName(b2.toString());
-        series3.setName(" - horizontal velocity of A");
-        series4.setName(" - vertical velocity of A");
-        series5.setName(" - horizontal velocity of B");
-        series6.setName(" - vertical velocity of B");
-        posChart.getData().addAll(series1, series2);
-        velChart.getData().addAll(series3, series4, series5, series6);
+        for (Body body : bodies) {
+            XYChart.Series<Number, Number> pos = positionSeries.get(body);
+            XYChart.Series<Number, Number> vx = horizontalVelocitySeries.get(body);
+            XYChart.Series<Number, Number> vy = verticalVelocitySeries.get(body);
+            pos.setName(body.getName());
+            vx.setName("- horizontal velocity of " + body.getName());
+            vy.setName("- vertical velocity of " + body.getName());
+
+            pos.getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
+
+            posChart.getData().add(pos);
+            velChart.getData().addAll(vx, vy);
+        }
 
         Button startButton = new Button("START");
         Button stopButton = new Button("STOP");
         Button resetButton = new Button("RESET");
+        Button addButton = new Button("ADD A BODY");
         Button exitButton = new Button("EXIT");
 
         startButton.setOnAction(_ -> startSimulation());
         stopButton.setOnAction(_ -> stopSimulation());
         resetButton.setOnAction(_ -> resetSimulation());
+        addButton.setOnAction(_ -> addNewBody(posChart, velChart, controlsBox));
         exitButton.setOnAction(_ -> Platform.exit());
 
         TextField restitutionField = new TextField("1.0");
@@ -92,15 +110,22 @@ public class Main extends Application {
         restitutionField.textProperty().addListener((_, _, newVal) -> {
             try {
                 rest = Double.parseDouble(newVal);
+                errorText.setText("");
             } catch (NumberFormatException e) {
                 errorText.setText("Invalid restitution: " + e.getMessage());
             }
         });
 
         HBox settingsBox = new HBox(10, new Text("Restitution:"), restitutionField);
-        HBox buttonBox = new HBox(10, startButton, stopButton, resetButton, exitButton);
+        HBox buttonBox = new HBox(10, startButton, stopButton, resetButton, addButton, exitButton);
         HBox chartsBox = new HBox(10, posChart, velChart);
-        HBox controlsBox = new HBox(10, controlBox1, controlBox2, settingsBox);
+        controlsBox = new HBox(10);
+        for (Body body : bodies) {
+            VBox box = createBodyControlBox(body, body.getName());
+            controlBoxes.put(body, box);
+            controlsBox.getChildren().add(box);
+        }
+        controlsBox.getChildren().add(settingsBox);
 
         VBox mainContent = new VBox(10, buttonBox, chartsBox, controlsBox);
         ScrollPane root = new ScrollPane(mainContent);
@@ -111,116 +136,6 @@ public class Main extends Application {
         stage.show();
     }
 
-    private VBox createBodyControlBox(Body body, String name) {
-        Text errorText = new Text();
-        VBox controlBox = new VBox(5);
-
-        TextField massField = new TextField(String.valueOf(body.getMass()));
-        massField.setPromptText("Enter mass of " + name);
-        massField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                body.setMass(Double.parseDouble(newVal));
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid mass: " + e.getMessage());
-            }
-        });
-
-        TextField xPosField = new TextField(String.valueOf(body.getPosition().x));
-        xPosField.setPromptText("Enter X position");
-        xPosField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                Vector pos = body.getPosition();
-                pos.x = Double.parseDouble(newVal);
-                body.setPosition(pos);
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid X position: " + e.getMessage());
-            }
-        });
-
-        TextField yPosField = new TextField(String.valueOf(body.getPosition().y));
-        yPosField.setPromptText("Enter Y position");
-        yPosField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                Vector pos = body.getPosition();
-                pos.y = Double.parseDouble(newVal);
-                body.setPosition(pos);
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid Y position: " + e.getMessage());
-            }
-        });
-
-        TextField xVelField = new TextField(String.valueOf(body.getVelocity().x));
-        xVelField.setPromptText("Enter X velocity");
-        xVelField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                Vector vel = body.getVelocity();
-                vel.x = Double.parseDouble(newVal);
-                body.setVelocity(vel);
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid X velocity: " + e.getMessage());
-            }
-        });
-
-        TextField yVelField = new TextField(String.valueOf(body.getVelocity().y));
-        yVelField.setPromptText("Enter Y velocity");
-        yVelField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                Vector vel = body.getVelocity();
-                vel.y = Double.parseDouble(newVal);
-                body.setVelocity(vel);
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid Y velocity: " + e.getMessage());
-            }
-        });
-
-        TextField xAccField = new TextField(String.valueOf(body.getAcceleration().x));
-        xAccField.setPromptText("Enter X acceleration");
-        xAccField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                Vector acc = body.getAcceleration();
-                acc.x = Double.parseDouble(newVal);
-                body.setAcceleration(acc);
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid X acceleration: " + e.getMessage());
-            }
-        });
-
-        TextField yAccField = new TextField(String.valueOf(body.getAcceleration().y));
-        yAccField.setPromptText("Enter Y acceleration");
-        yAccField.textProperty().addListener((_, _, newVal) -> {
-            try {
-                Vector acc = body.getAcceleration();
-                acc.y = Double.parseDouble(newVal);
-                body.setAcceleration(acc);
-                errorText.setText("");
-            } catch (Exception e) {
-                errorText.setText("Invalid Y acceleration: " + e.getMessage());
-            }
-        });
-
-        controlBox.getChildren().addAll(
-                new Text(name + " Mass:"),
-                massField,
-                new Text("Position:"),
-                xPosField,
-                yPosField,
-                new Text("Velocity:"),
-                xVelField,
-                yVelField,
-                new Text("Acceleration:"),
-                xAccField,
-                yAccField,
-                errorText
-        );
-
-        return controlBox;
-    }
 
     private void startSimulation() {
         if (isRunning) return;
@@ -235,25 +150,30 @@ public class Main extends Application {
                 time += dt;
 
                 synchronized (this) {
-                    b1.update(dt, rest);
-                    b2.update(dt, rest);
+                    for (Body body : bodies) {
+                        body.update(dt, rest);
+                    }
                 }
 
                 double finalTime = time;
                 Platform.runLater(() -> {
-                    series1.getData().add(new XYChart.Data<>(b1.getPosition().x, b1.getPosition().y));
-                    series2.getData().add(new XYChart.Data<>(b2.getPosition().x, b2.getPosition().y));
-                    series1.setName(b1.toString());
-                    series2.setName(b2.toString());
-                    series3.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().x));
-                    series4.getData().add(new XYChart.Data<>(finalTime, b1.getVelocity().y));
-                    series5.getData().add(new XYChart.Data<>(finalTime, b2.getVelocity().x));
-                    series6.getData().add(new XYChart.Data<>(finalTime, b2.getVelocity().y));
+                    for (Body body : bodies) {
+                        positionSeries.get(body).getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
+                        horizontalVelocitySeries.get(body).getData().add(new XYChart.Data<>(finalTime, body.getVelocity().x));
+                        verticalVelocitySeries.get(body).getData().add(new XYChart.Data<>(finalTime, body.getVelocity().y));
+                        positionSeries.get(body).setName(body.getName());
+                        horizontalVelocitySeries.get(body).setName("- horizontal velocity of " + body.getName());
+                        verticalVelocitySeries.get(body).setName("- vertical velocity of " + body.getName());
+                    }
                 });
 
-                if (b1.dist(b2) < 1) {
-                    synchronized (this) {
-                        Body.collide(b1, b2, rest);
+                synchronized (this) {
+                    for (Body b1 : bodies) {
+                        for (Body b2 : bodies) {
+                            if (b1 != b2 && b1.dist(b2) < 1) {
+                                collide(b1, b2, rest);
+                            }
+                        }
                     }
                 }
 
@@ -277,56 +197,105 @@ public class Main extends Application {
 
     private void resetSimulation() {
         stopSimulation();
-
-        updateBodyFromUI(b1, controlBox1);
-        updateBodyFromUI(b2, controlBox2);
+        for (Body body : bodies) {
+            updateBodyFromUI(body, controlBoxes.get(body));
+        }
 
         Platform.runLater(() -> {
-            series1.getData().clear();
-            series2.getData().clear();
-            series3.getData().clear();
-            series4.getData().clear();
-            series5.getData().clear();
-            series6.getData().clear();
-            series1.setName(b1.toString());
-            series2.setName(b2.toString());
-            series1.getData().add(new XYChart.Data<>(b1.getPosition().x, b1.getPosition().y));
-            series2.getData().add(new XYChart.Data<>(b2.getPosition().x, b2.getPosition().y));
+            for (Body body : bodies) {
+                positionSeries.get(body).getData().clear();
+                horizontalVelocitySeries.get(body).getData().clear();
+                verticalVelocitySeries.get(body).getData().clear();
+            }
         });
+    }
+
+    private void addNewBody(ScatterChart<Number, Number> posChart, LineChart<Number, Number> velChart, HBox controlsBox) {
+        Body body = new Body("Body " + (bodies.size() + 1), new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 1);
+        bodies.add(body);
+
+        XYChart.Series<Number, Number> pos = new XYChart.Series<>();
+        XYChart.Series<Number, Number> vx = new XYChart.Series<>();
+        XYChart.Series<Number, Number> vy = new XYChart.Series<>();
+        positionSeries.put(body, pos);
+        horizontalVelocitySeries.put(body, vx);
+        verticalVelocitySeries.put(body, vy);
+
+        pos.setName(body.getName());
+        vx.setName("- horizontal velocity of " + body.getName());
+        vy.setName("- vertical velocity of " + body.getName());
+
+        pos.getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
+        posChart.getData().add(pos);
+        velChart.getData().addAll(vx, vy);
+
+        VBox box = createBodyControlBox(body, body.getName());
+        controlBoxes.put(body, box);
+        controlsBox.getChildren().add(controlsBox.getChildren().size() - 1, box);
+    }
+
+    private VBox createBodyControlBox(Body body, String name) {
+        VBox box = new VBox(5);
+        Text errorText = new Text();
+
+        TextField[] fields = new TextField[6];
+        String[] prompts = {
+                "Enter X position", "Enter Y position",
+                "Enter X velocity", "Enter Y velocity",
+                "Enter X acceleration", "Enter Y acceleration"
+        };
+
+        Vector[] vectors = {body.getPosition(), body.getPosition(), body.getVelocity(), body.getVelocity(), body.getAcceleration(), body.getAcceleration()};
+        boolean[] isX = {true, false, true, false, true, false};
+
+        TextField massField = new TextField(String.valueOf(body.getMass()));
+        massField.setPromptText("Enter mass of " + name);
+        massField.textProperty().addListener((_, _, newVal) -> {
+            try {
+                body.setMass(Double.parseDouble(newVal));
+                errorText.setText("");
+            } catch (Exception e) {
+                errorText.setText("Invalid mass: " + e.getMessage());
+            }
+        });
+
+        box.getChildren().addAll(new Text(name + " Mass:"), massField, new Text("State:"));
+
+        for (int i = 0; i < 6; i++) {
+            fields[i] = new TextField(String.valueOf(isX[i] ? vectors[i].x : vectors[i].y));
+            fields[i].setPromptText(prompts[i]);
+            final int idx = i;
+            fields[i].textProperty().addListener((_, _, newVal) -> {
+                try {
+                    double val = Double.parseDouble(newVal);
+                    if (isX[idx]) vectors[idx].x = val;
+                    else vectors[idx].y = val;
+                    errorText.setText("");
+                } catch (Exception e) {
+                    errorText.setText("Invalid input: " + e.getMessage());
+                }
+            });
+            box.getChildren().add(fields[i]);
+        }
+
+        box.getChildren().add(errorText);
+        return box;
     }
 
     private void updateBodyFromUI(Body body, VBox controlBox) {
         for (javafx.scene.Node node : controlBox.getChildren()) {
             if (node instanceof TextField field) {
                 String prompt = field.getPromptText();
-                double value;
                 try {
-                    value = Double.parseDouble(field.getText());
-                } catch (NumberFormatException e) {
-                    continue;
-                }
-
-                if (prompt.contains("mass")) {
-                    body.setMass(value);
-                }
-                else if (prompt.contains("X position")) {
-                    body.getPosition().x = value;
-                }
-                else if (prompt.contains("Y position")) {
-                    body.getPosition().y = value;
-                }
-                else if (prompt.contains("X velocity")) {
-                    body.getVelocity().x = value;
-                }
-                else if (prompt.contains("Y velocity")) {
-                    body.getVelocity().y = value;
-                }
-                else if (prompt.contains("X acceleration")) {
-                    body.getAcceleration().x = value;
-                }
-                else if (prompt.contains("Y acceleration")) {
-                    body.getAcceleration().y = value;
-                }
+                    double value = Double.parseDouble(field.getText());
+                    if (prompt.contains("mass")) body.setMass(value);
+                    else if (prompt.contains("X position")) body.getPosition().x = value;
+                    else if (prompt.contains("Y position")) body.getPosition().y = value;
+                    else if (prompt.contains("X velocity")) body.getVelocity().x = value;
+                    else if (prompt.contains("Y velocity")) body.getVelocity().y = value;
+                    else if (prompt.contains("X acceleration")) body.getAcceleration().x = value;
+                    else if (prompt.contains("Y acceleration")) body.getAcceleration().y = value;
+                } catch (NumberFormatException ignored) {}
             }
         }
     }
