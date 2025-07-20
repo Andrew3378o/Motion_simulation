@@ -7,9 +7,7 @@ import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.ScatterChart;
 import javafx.scene.chart.XYChart;
-import javafx.scene.control.Button;
-import javafx.scene.control.ScrollPane;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Text;
@@ -288,6 +286,7 @@ public class Main extends Application {
                 String prompt = field.getPromptText();
                 try {
                     double value = Double.parseDouble(field.getText());
+
                     if (prompt.contains("mass")) body.setMass(value);
                     else if (prompt.contains("X position")) body.getPosition().x = value;
                     else if (prompt.contains("Y position")) body.getPosition().y = value;
