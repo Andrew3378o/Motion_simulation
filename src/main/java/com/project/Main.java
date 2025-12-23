@@ -10,7 +10,6 @@ import javafx.scene.chart.XYChart;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -19,7 +18,9 @@ import static com.project.Body.*;
 
 public class Main extends Application {
 
+    double G = 1;
     double rest = 1;
+    volatile boolean gravityEnabled = true;
     volatile boolean isRunning = false;
     Thread simulationThread;
     ArrayList<Body> bodies = new ArrayList<>();
@@ -37,8 +38,8 @@ public class Main extends Application {
     public void start(Stage stage) {
         stage.setTitle("MOTION SIMULATION");
 
-        Body b1 = new Body("Body 1", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 1);
-        Body b2 = new Body("Body 2", new Vector(1, 0), new Vector(0, 0), new Vector(0, 0), 1);
+        Body b1 = new Body("Body 1", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0, true);
+        Body b2 = new Body("Body 2", new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 0, false);
         bodies.add(b1);
         bodies.add(b2);
 
@@ -80,14 +81,7 @@ public class Main extends Application {
             XYChart.Series<Number, Number> pos = positionSeries.get(body);
             XYChart.Series<Number, Number> vx = horizontalVelocitySeries.get(body);
             XYChart.Series<Number, Number> vy = verticalVelocitySeries.get(body);
-            pos.setName(body.getName());
-            vx.setName("- horizontal velocity of " + body.getName());
-            vy.setName("- vertical velocity of " + body.getName());
-
-            pos.getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
-
-            posChart.getData().add(pos);
-            velChart.getData().addAll(vx, vy);
+            initializeChartSeries(posChart, velChart, body, pos, vx, vy);
         }
 
         Button startButton = new Button("START");
@@ -103,7 +97,9 @@ public class Main extends Application {
         exitButton.setOnAction(_ -> Platform.exit());
 
         TextField restitutionField = new TextField("1.0");
-        Text errorText = new Text();
+        Label errorText = new Label();
+        errorText.setStyle("-fx-text-fill: #ff5555;");
+
         restitutionField.setPromptText("Enter Restitution (0.0 - 1.0)");
         restitutionField.textProperty().addListener((_, _, newVal) -> {
             try {
@@ -114,10 +110,18 @@ public class Main extends Application {
             }
         });
 
-        HBox settingsBox = new HBox(10, new Text("Restitution:"), restitutionField);
+        CheckBox gravityCheck = new CheckBox("Gravity");
+        gravityCheck.setSelected(true);
+        gravityCheck.selectedProperty().addListener((_, _, newVal) -> gravityEnabled = newVal);
+
+        VBox settingsBox = new VBox(10,
+                new Label("Restitution:"), restitutionField,
+                gravityCheck
+        );
+
         HBox buttonBox = new HBox(10, startButton, stopButton, resetButton, addButton, exitButton);
         HBox chartsBox = new HBox(10, posChart, velChart);
-        controlsBox = new HBox(10);
+
         for (Body body : bodies) {
             VBox box = createBodyControlBox(body, body.getName());
             controlBoxes.put(body, box);
@@ -134,7 +138,6 @@ public class Main extends Application {
         stage.show();
     }
 
-
     private void startSimulation() {
         if (isRunning) return;
         isRunning = true;
@@ -148,20 +151,40 @@ public class Main extends Application {
                 time += dt;
 
                 synchronized (this) {
+                    if (gravityEnabled) {
+                        applyGravity(dt, bodies, G);
+                    } else {
+                        for (Body body : bodies) {
+                            body.setAcceleration(new Vector(0, 0));
+                        }
+                    }
+
                     for (Body body : bodies) {
-                        body.update(dt, rest);
+                        if (body.isMovable()) {
+                            body.update(dt, rest);
+                        } else {
+                            body.setVelocity(new Vector(0, 0));
+                            body.setAcceleration(new Vector(0, 0));
+                        }
                     }
                 }
 
                 double finalTime = time;
                 Platform.runLater(() -> {
+                    int trailLength = 40;
+
                     for (Body body : bodies) {
-                        positionSeries.get(body).getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
-                        horizontalVelocitySeries.get(body).getData().add(new XYChart.Data<>(finalTime, body.getVelocity().x));
-                        verticalVelocitySeries.get(body).getData().add(new XYChart.Data<>(finalTime, body.getVelocity().y));
-                        positionSeries.get(body).setName(body.getName());
-                        horizontalVelocitySeries.get(body).setName("- horizontal velocity of " + body.getName());
-                        verticalVelocitySeries.get(body).setName("- vertical velocity of " + body.getName());
+                        XYChart.Series<Number, Number> posSeries = positionSeries.get(body);
+                        posSeries.getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
+
+                        if (posSeries.getData().size() > trailLength) {
+                            posSeries.getData().removeFirst();
+                        }
+
+                        XYChart.Series<Number, Number> velXSeries = horizontalVelocitySeries.get(body);
+                        XYChart.Series<Number, Number> velYSeries = verticalVelocitySeries.get(body);
+                        velXSeries.getData().add(new XYChart.Data<>(finalTime, body.getVelocity().x));
+                        velYSeries.getData().add(new XYChart.Data<>(finalTime, body.getVelocity().y));
                     }
                 });
 
@@ -186,6 +209,10 @@ public class Main extends Application {
         simulationThread.start();
     }
 
+    // ... (решта методів: stopSimulation, resetSimulation, addNewBody, createBodyControlBox, updateBodyFromUI без змін) ...
+    // Не забудьте скопіювати їх сюди, якщо ви перезаписуєте весь файл.
+    // Я їх приховав для економії місця, оскільки там змін не було.
+
     private void stopSimulation() {
         isRunning = false;
         if (simulationThread != null) {
@@ -209,7 +236,7 @@ public class Main extends Application {
     }
 
     private void addNewBody(ScatterChart<Number, Number> posChart, LineChart<Number, Number> velChart, HBox controlsBox) {
-        Body body = new Body("Body " + (bodies.size() + 1), new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 1);
+        Body body = new Body("Body " + (bodies.size() + 1), new Vector(0, 0), new Vector(0, 0), new Vector(0, 0), 1, true);
         bodies.add(body);
 
         XYChart.Series<Number, Number> pos = new XYChart.Series<>();
@@ -219,6 +246,14 @@ public class Main extends Application {
         horizontalVelocitySeries.put(body, vx);
         verticalVelocitySeries.put(body, vy);
 
+        initializeChartSeries(posChart, velChart, body, pos, vx, vy);
+
+        VBox box = createBodyControlBox(body, body.getName());
+        controlBoxes.put(body, box);
+        controlsBox.getChildren().add(controlsBox.getChildren().size() - 1, box);
+    }
+
+    private void initializeChartSeries(ScatterChart<Number, Number> posChart, LineChart<Number, Number> velChart, Body body, XYChart.Series<Number, Number> pos, XYChart.Series<Number, Number> vx, XYChart.Series<Number, Number> vy) {
         pos.setName(body.getName());
         vx.setName("- horizontal velocity of " + body.getName());
         vy.setName("- vertical velocity of " + body.getName());
@@ -226,15 +261,12 @@ public class Main extends Application {
         pos.getData().add(new XYChart.Data<>(body.getPosition().x, body.getPosition().y));
         posChart.getData().add(pos);
         velChart.getData().addAll(vx, vy);
-
-        VBox box = createBodyControlBox(body, body.getName());
-        controlBoxes.put(body, box);
-        controlsBox.getChildren().add(controlsBox.getChildren().size() - 1, box);
     }
 
     private VBox createBodyControlBox(Body body, String name) {
         VBox box = new VBox(5);
-        Text errorText = new Text();
+        Label errorText = new Label();
+        errorText.setStyle("-fx-text-fill: #ff5555;");
 
         TextField[] fields = new TextField[6];
         String[] prompts = {
@@ -257,7 +289,11 @@ public class Main extends Application {
             }
         });
 
-        box.getChildren().addAll(new Text(name + " Mass:"), massField, new Text("State:"));
+        CheckBox movableCheck = new CheckBox("Is Movable");
+        movableCheck.setSelected(body.isMovable());
+        movableCheck.selectedProperty().addListener((_, _, newVal) -> body.setMovable(newVal));
+
+        box.getChildren().addAll(new Label(name + " Mass:"), massField, movableCheck, new Label("State:"));
 
         for (int i = 0; i < 6; i++) {
             fields[i] = new TextField(String.valueOf(isX[i] ? vectors[i].x : vectors[i].y));
@@ -295,6 +331,10 @@ public class Main extends Application {
                     else if (prompt.contains("X acceleration")) body.getAcceleration().x = value;
                     else if (prompt.contains("Y acceleration")) body.getAcceleration().y = value;
                 } catch (NumberFormatException ignored) {}
+            } else if (node instanceof CheckBox checkBox) {
+                if ("Is Movable".equals(checkBox.getText())) {
+                    body.setMovable(checkBox.isSelected());
+                }
             }
         }
     }
